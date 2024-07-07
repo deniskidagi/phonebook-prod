@@ -1,11 +1,14 @@
 const express = require('express');
-const morgan = require('morgan')
+// const morgan = require('morgan')
 const cors = require('cors')
 const app = express()
+require('dotenv').config()
 
 app.use(express.json())
 app.use(cors())
 app.use(express.static('dist'))
+
+const Phone = require('./models/phone')
 
 let contacts =
 [
@@ -30,29 +33,25 @@ let contacts =
       "number": "39-23-6423122"
     }
 ]
-morgan.token('type', (req, res) => {
-    return JSON.stringify(req.body)
-})
-app.use(morgan(':method :url :status :res[content-length] - :response-time ms :type'))
-app.get('/api/persons', (request, response) => {
-    response.json(contacts)
+// morgan.token('type', (req, res) => {
+//     return JSON.stringify(req.body)
+// })
+// app.use(morgan(':method :url :status :res[content-length] - :response-time ms :type'))
+// app.get('/api/persons', (request, response) => {
+//     response.json(contacts)
 
-})
+// })
 
 app.get('/info', (request, response) => {
     const contactsTotals = contacts.length
     response.send(`<p> phonebook has info for ${contactsTotals} people </br> ${Date()}`)
 })
-
+app.get('/api/persons', (request, response) => {
+    Phone.find({}).then(persons => response.json(persons))
+})
 app.get('/api/persons/:id', (request, response) => {
     const id = request.params.id
-    const contactDetail = contacts.find(contact => contact.id === id)
-    if(!contactDetail){
-        return response.status(400).json({
-            error: "contact not found"
-        })
-    }
-    response.json(contactDetail)
+    Phone.findById().then(response => response.json())
 })
 
 app.delete('/api/persons/:id', (request, response) => {
@@ -61,33 +60,20 @@ app.delete('/api/persons/:id', (request, response) => {
     response.json(validContacts)
 })
 
-const generateId = () => {
-    const MaxId = Math.max(...contacts.map(contact => Number(contact.id)))
-    return MaxId + 1
-}
+
 
 app.post('/api/persons', (request, response) => {
     const contactBody = request.body
-    if(!contactBody.name && !contactBody.number){
-        return response.json({
-            error: "name or number is missing"
-        })
+    if(contactBody === undefined){
+        return response.status(400).json({error: "content is missing"})
     }
-    if(contacts.find(contact => contact.name === contactBody.name)){
-        return response.json({
-            error: "name must be unique"
-        })
-    }
-    const contact = {
-        id: generateId(),
+    const contact = new Phone({
         name: contactBody.name,
         number: contactBody.number
-    }
-    
-    contacts = contacts.concat(contact)
-    response.json(contact)
+    })
+    contact.save().then(savedContact => response.json(savedContact))
 })
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT
 app.listen(PORT, () => {
     console.log(`server listening on port ${PORT}`);
 })
